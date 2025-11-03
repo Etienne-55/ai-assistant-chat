@@ -3,6 +3,7 @@ import cors from 'cors';
 import { streamText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { currencyTool } from './tools/currency.tool';
+import { weatherTool } from './tools/weather.tool';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -26,7 +27,6 @@ app.get('/health', (_req: Request, res: Response) => {
 app.post('/chat', async (req: Request, res: Response) => {
   try {
     const { messages } = req.body;
-    
     console.log('request body:', req.body);
     console.log('Content-Type:', req.headers['content-type']);
     
@@ -37,10 +37,12 @@ app.post('/chat', async (req: Request, res: Response) => {
     console.log('Starting streamText...');
     
     const result = streamText({
-      model: ollama.chat('mistral:7b'),
+      // model: ollama.chat('mistral:7b'),
+      model: ollama.chat('llama3.1:8b'),
       messages,
       tools: {
         getCurrency: currencyTool,
+        getWeather: weatherTool,
       },
       // maxToolRoundtrips: 5,
     });
@@ -79,7 +81,18 @@ app.post('/chat', async (req: Request, res: Response) => {
       
       if (lastResult.error) {
         res.write(`Error: ${lastResult.error}`);
-      } else {
+      } else if (lastResult.temperature !== undefined) {
+        // Weather result
+        const tempSymbol = lastResult.units.temperature === 'fahrenheit' ? 'F' : 'C';
+        const response = `Weather in ${lastResult.location}:\n` +
+          `Temperature: ${lastResult.temperature}°${tempSymbol}\n` +
+          `Feels like: ${lastResult.feels_like}°${tempSymbol}\n` +
+          `Humidity: ${lastResult.humidity}%\n` +
+          `Wind speed: ${lastResult.wind_speed} ${lastResult.units.wind_speed}\n` +
+          `Precipitation: ${lastResult.precipitation} ${lastResult.units.precipitation}`;
+        res.write(response);
+      } else if (lastResult.amount !== undefined) {
+        // Currency result
         const response = `${lastResult.amount} ${lastResult.from} is equal to ${lastResult.converted} ${lastResult.to} (exchange rate: ${lastResult.rate} as of ${lastResult.timestamp})`;
         res.write(response);
       }
@@ -87,10 +100,10 @@ app.post('/chat', async (req: Request, res: Response) => {
 
     res.end();
     console.log('Response ended successfully');
+  
   } catch (error) {
     console.error('Chat error:', error);
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
-    
     if (!res.headersSent) {
       res.status(500).json({ 
         error: 'Internal server error',
@@ -106,4 +119,3 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`Using Ollama local server`);
 });
-

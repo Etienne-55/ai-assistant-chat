@@ -17,7 +17,7 @@
     // Type Checking
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
+    // "exactOptionalPropertyTypes": true,
     "skipLibCheck": true,
     
     // Other Outputs
