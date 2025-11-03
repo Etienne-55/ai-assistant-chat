@@ -13,19 +13,16 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Configure Ollama as OpenAI-compatible provider
 const ollama = createOpenAI({
   name: 'ollama',
-  apiKey: 'ollama', // Ollama doesn't require a real API key
+  apiKey: 'ollama', 
   baseURL: 'http://localhost:11434/v1',
 });
 
-// Health check
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok' });
 });
 
-// Main chat endpoint
 app.post('/chat', async (req: Request, res: Response) => {
   try {
     const { messages } = req.body;
@@ -50,12 +47,10 @@ app.post('/chat', async (req: Request, res: Response) => {
 
     console.log('Setting up stream...');
     
-    // Set headers for SSE (Server-Sent Events)
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
-    // Use fullStream to see tool calls and text
     const stream = result.fullStream;
     
     console.log('Starting to stream...');
@@ -67,7 +62,6 @@ app.post('/chat', async (req: Request, res: Response) => {
       chunkCount++;
       console.log(`Chunk ${chunkCount}:`, JSON.stringify(chunk, null, 2));
       
-      // Only send text deltas to the client
       if (chunk.type === 'text-delta') {
         hasText = true;
         res.write(chunk.text);
@@ -79,7 +73,6 @@ app.post('/chat', async (req: Request, res: Response) => {
       }
     }
 
-    // If no text was generated, create a response from tool results
     if (!hasText && toolResults.length > 0) {
       console.log('No text generated, formatting tool results...');
       const lastResult = toolResults[toolResults.length - 1];
@@ -109,10 +102,8 @@ app.post('/chat', async (req: Request, res: Response) => {
   }
 });
 
-
-
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📡 Using Ollama local server`);
+  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Using Ollama local server`);
 });
 

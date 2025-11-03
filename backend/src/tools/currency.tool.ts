@@ -11,7 +11,6 @@ export const currencyTool = tool({
   }),
   execute: async (params: any) => {
     try {
-      // Handle multiple parameter name variations
       const fromCurrency = params.baseCurrency || params.currencyFrom || params.fromCurrency || params.from_currency || params.from;
       const toCurrency = params.targetCurrency || params.currencyTo || params.toCurrency || params.to_currency || params.to;
       const amount = params.amount || 1;
