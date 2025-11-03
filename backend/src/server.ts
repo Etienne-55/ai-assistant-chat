@@ -42,10 +42,10 @@ app.post('/chat', async (req: Request, res: Response) => {
     const result = streamText({
       model: ollama.chat('mistral:7b'),
       messages,
-      // tools: {
-      //   getCurrency: currencyTool,
-      // },
-      // maxSteps: 5,
+      tools: {
+        getCurrency: currencyTool,
+      },
+      // maxToolRoundtrips: 5,
     });
 
     console.log('Setting up stream...');
@@ -55,16 +55,41 @@ app.post('/chat', async (req: Request, res: Response) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
-    // Use the text stream directly
-    const stream = result.textStream;
+    // Use fullStream to see tool calls and text
+    const stream = result.fullStream;
     
     console.log('Starting to stream...');
     let chunkCount = 0;
+    let hasText = false;
+    let toolResults: any[] = [];
     
     for await (const chunk of stream) {
       chunkCount++;
-      console.log(`Chunk ${chunkCount}:`, chunk);
-      res.write(chunk);
+      console.log(`Chunk ${chunkCount}:`, JSON.stringify(chunk, null, 2));
+      
+      // Only send text deltas to the client
+      if (chunk.type === 'text-delta') {
+        hasText = true;
+        res.write(chunk.text);
+      } else if (chunk.type === 'tool-call') {
+        console.log('Tool call:', chunk.toolName, chunk.input);
+      } else if (chunk.type === 'tool-result') {
+        console.log('Tool result:', chunk.output);
+        toolResults.push(chunk.output);
+      }
+    }
+
+    // If no text was generated, create a response from tool results
+    if (!hasText && toolResults.length > 0) {
+      console.log('No text generated, formatting tool results...');
+      const lastResult = toolResults[toolResults.length - 1];
+      
+      if (lastResult.error) {
+        res.write(`Error: ${lastResult.error}`);
+      } else {
+        const response = `${lastResult.amount} ${lastResult.from} is equal to ${lastResult.converted} ${lastResult.to} (exchange rate: ${lastResult.rate} as of ${lastResult.timestamp})`;
+        res.write(response);
+      }
     }
 
     res.end();
@@ -83,6 +108,8 @@ app.post('/chat', async (req: Request, res: Response) => {
     }
   }
 });
+
+
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
