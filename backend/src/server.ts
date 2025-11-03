@@ -92,7 +92,6 @@ app.post('/chat', async (req: Request, res: Response) => {
           `Precipitation: ${lastResult.precipitation} ${lastResult.units.precipitation}`;
         res.write(response);
       } else if (lastResult.amount !== undefined) {
-        // Currency result
         const response = `${lastResult.amount} ${lastResult.from} is equal to ${lastResult.converted} ${lastResult.to} (exchange rate: ${lastResult.rate} as of ${lastResult.timestamp})`;
         res.write(response);
       }
@@ -119,3 +118,4 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`Using Ollama local server`);
 });
+

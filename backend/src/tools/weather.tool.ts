@@ -16,7 +16,6 @@ export const weatherTool = tool({
     console.log('Weather tool called:', { receivedArgs: args, location, units });
 
     try {
-      // Geocode location
       const geoRes = await fetch(
         `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=en&format=json`
       );
@@ -29,7 +28,6 @@ export const weatherTool = tool({
 
       const { latitude, longitude, name, country } = geoData.results[0];
 
-      // Get weather
       const tempUnit = units === 'fahrenheit' ? 'fahrenheit' : 'celsius';
       const weatherRes = await fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_speed_10m&temperature_unit=${tempUnit}`
