@@ -13,11 +13,11 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Configure LM Studio as OpenAI-compatible provider
-const lmstudio = createOpenAI({
-  name: 'lmstudio',
-  apiKey: 'lm-studio', // LM Studio doesn't require a real API key
-  baseURL: 'http://localhost:1234/v1',
+// Configure Ollama as OpenAI-compatible provider
+const ollama = createOpenAI({
+  name: 'ollama',
+  apiKey: 'ollama', // Ollama doesn't require a real API key
+  baseURL: 'http://localhost:11434/v1',
 });
 
 // Health check
@@ -37,44 +37,55 @@ app.post('/chat', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Messages array is required' });
     }
 
+    console.log('Starting streamText...');
+    
     const result = streamText({
-      model: lmstudio.chat('qwen/qwen2.5-coder-14b'),
+      model: ollama.chat('mistral:7b'),
       messages,
-      tools: {
-        getCurrency: currencyTool,
-      },
+      // tools: {
+      //   getCurrency: currencyTool,
+      // },
+      // maxSteps: 5,
     });
 
+    console.log('Setting up stream...');
+    
     // Set headers for SSE (Server-Sent Events)
-    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
-    // Stream the response
-    const stream = result.toTextStreamResponse();
+    // Use the text stream directly
+    const stream = result.textStream;
     
-    const reader = stream.body?.getReader();
-    if (!reader) {
-      throw new Error('No reader available');
-    }
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      res.write(value);
+    console.log('Starting to stream...');
+    let chunkCount = 0;
+    
+    for await (const chunk of stream) {
+      chunkCount++;
+      console.log(`Chunk ${chunkCount}:`, chunk);
+      res.write(chunk);
     }
 
     res.end();
+    console.log('Response ended successfully');
   } catch (error) {
     console.error('Chat error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    });
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
+    
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } else {
+      res.end();
+    }
   }
 });
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📡 Using LM Studio local server`);
+  console.log(`📡 Using Ollama local server`);
 });
+
