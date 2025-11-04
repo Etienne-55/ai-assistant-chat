@@ -43,7 +43,7 @@ app.post('/chat', async (req: Request, res: Response) => {
     const systemPrompt = `You are a helpful assistant that prioritizes direct, concise, and accurate text responses for all queries unless explicitly required to use a tool. ONLY use the 'getCurrency' tool for queries explicitly mentioning currency conversion (e.g., "Convert 100 USD to EUR") and the 'getWeather' tool for queries explicitly mentioning weather or a location’s climate (e.g., "What's the weather in London?"). For greetings (e.g., "Hello", "Hi") or general knowledge questions (e.g., "What's the biggest animal?", "What’s the fastest car?"), ALWAYS provide a direct text response and DO NOT invoke any tools, even if the query mentions avoiding tools. Never invent or assume the existence of tools not provided (e.g., do not create a "getAnimal" tool). Avoid technical terms like "JSON", "function call", or "tool" in your answers.`;
 
     const result = await streamText({
-      model: ollama.chat('qwen2.5:7b-instruct-q5_0'),
+      model: ollama.chat('qwen2.5:3b-instruct-q4_K_M'),
       system: systemPrompt,
       messages,
       tools: {

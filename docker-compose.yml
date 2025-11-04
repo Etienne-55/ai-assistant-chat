@@ -58,12 +58,12 @@ services:
     command:
       - |
         echo "Checking if models are already installed..."
-        if ollama list | grep -q "llama3.2:3b"; then
+        if ollama list | grep -q "qwen2.5:3b-instruct-q4_K_M"; then
           echo "Models already installed, skipping..."
           exit 0
         fi
-        echo "Installing llama3.2:3b (this may take a few minutes on first run)..."
-        ollama pull llama3.2:3b
+        echo "Installing qwen2.5:3b-instruct-q4_K_M (this may take a few minutes on first run)..."
+        ollama pull qwen2.5:3b-instruct-q4_K_M
         echo "✓ Model ready!"
     restart: "no"
 
