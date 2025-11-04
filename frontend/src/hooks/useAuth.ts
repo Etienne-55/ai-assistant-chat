@@ -1,6 +1,5 @@
 import { useState } from 'react';
 
-// Define User type here directly
 interface User {
   id: string;
   email: string;
@@ -11,7 +10,7 @@ export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, _password: string) => {
     setIsLoading(true);
     
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -32,5 +31,4 @@ export const useAuth = () => {
   return { user, login, logout, isLoading };
 };
 
-// Export the types too
 export type { User };
