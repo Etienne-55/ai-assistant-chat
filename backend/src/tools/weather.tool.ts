@@ -88,4 +88,4 @@ export const weatherTool = tool({
       } as WeatherToolResult;
     }
   },
-} as any); // Type assertion to bypass TS2589
+} as any); 
