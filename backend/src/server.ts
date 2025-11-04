@@ -14,10 +14,12 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+const ollamaURL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+
 const ollama = createOpenAI({
   name: 'ollama',
   apiKey: 'ollama', 
-  baseURL: 'http://localhost:11434/v1',
+  baseURL: `${ollamaURL}/v1`,
 });
 
 app.get('/health', (_req: Request, res: Response) => {
@@ -37,7 +39,6 @@ app.post('/chat', async (req: Request, res: Response) => {
     console.log('Starting streamText...');
     
     const result = streamText({
-      // model: ollama.chat('mistral:7b'),
       model: ollama.chat('llama3.1:8b'),
       messages,
       tools: {

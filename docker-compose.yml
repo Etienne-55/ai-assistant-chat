@@ -4,15 +4,14 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: agentic-backend
+    networks:
+     - agentic-network
     ports:
       - "3001:3001"
     environment:
       - PORT=3001
-      # - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_BASE_URL=http://ollama:11434
       - NODE_ENV=production
-    # depends_on:
-    #   ollama:
-    #     condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
@@ -25,6 +24,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: agentic-frontend
+    networks:
+     - agentic-network
     ports:
       - "3000:3000"
     environment:
@@ -32,4 +33,45 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    networks:
+      - agentic-network
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+
+  ollama-setup:
+    image: ollama/ollama:latest
+    networks:
+      - agentic-network
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Checking if models are already installed..."
+        if ollama list | grep -q "llama3.2:3b"; then
+          echo "Models already installed, skipping..."
+          exit 0
+        fi
+        echo "Installing llama3.2:3b (this may take a few minutes on first run)..."
+        ollama pull llama3.2:3b
+        echo "✓ Model ready!"
+    restart: "no"
+
+networks:
+  agentic-network:
+    driver: bridge
+
+volumes:
+  ollama_data:
+    driver: local
 
