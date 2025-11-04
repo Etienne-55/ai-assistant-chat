@@ -1,55 +1,82 @@
-// @ts-nocheck
-import { tool } from 'ai';
+import { dynamicTool } from 'ai';
 import { z } from 'zod';
 
-export const currencyTool = tool({
-  description: 'Get current exchange rate between two currencies. Use 3-letter currency codes like USD, EUR, BRL, GBP, JPY.',
-  parameters: z.object({
-    baseCurrency: z.string().describe('Source currency code (e.g., USD)'),
-    targetCurrency: z.string().describe('Target currency code (e.g., BRL)'),
-    amount: z.number().optional().describe('Amount to convert (default: 1)'),
-  }),
-  execute: async (params: any) => {
-    try {
-      const fromCurrency = params.baseCurrency || params.currencyFrom || params.fromCurrency || params.from_currency || params.from;
-      const toCurrency = params.targetCurrency || params.currencyTo || params.toCurrency || params.to_currency || params.to;
-      const amount = params.amount || 1;
+interface ExchangeRateResponse {
+  rates: Record<string, number>;
+  base: string;
+  date: string;
+}
 
-      console.log('Tool params received:', params);
-      console.log('Extracted currencies:', { fromCurrency, toCurrency, amount });
-
-      if (!fromCurrency || !toCurrency) {
-        throw new Error('Missing currency parameters');
-      }
-
-      const response = await fetch(
-        `https://api.exchangerate-api.com/v4/latest/${fromCurrency.toUpperCase()}`
-      );
-      if (!response.ok) {
-        throw new Error('Failed to fetch exchange rates');
-      }
-      const data = await response.json();
-      const rate = data.rates[toCurrency.toUpperCase()];
-      
-      if (!rate) {
-        throw new Error(`Currency ${toCurrency} not found`);
-      }
-
-      const convertedAmount = amount * rate;
-      
-      return {
-        from: fromCurrency.toUpperCase(),
-        to: toCurrency.toUpperCase(),
-        rate: rate,
-        amount: amount,
-        converted: convertedAmount,
-        timestamp: data.date,
-      };
-    } catch (error) {
-      return {
-        error: `Failed to get exchange rate: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      };
-    }
-  },
+const currencyParamsSchema = z.object({
+  baseCurrency: z.string().describe('Source currency code (e.g., USD)'),
+  targetCurrency: z.string().describe('Target currency code (e.g., BRL)'),
+  amount: z.number().default(1).describe('Amount to convert (default: 1)'),
 });
 
+type CurrencyParams = z.infer<typeof currencyParamsSchema>;
+
+interface CurrencyToolResult {
+  success: boolean;
+  from?: string;
+  to?: string;
+  rate?: number;
+  amount?: number;
+  converted?: number;
+  timestamp?: string;
+  error?: string;
+}
+
+async function executeCurrencyTool(params: unknown): Promise<unknown> {
+  const parsedParams = currencyParamsSchema.safeParse(params);
+  if (!parsedParams.success) {
+    return {
+      success: false,
+      error: `Invalid input: ${parsedParams.error.message}`,
+    };
+  }
+
+  const { baseCurrency, targetCurrency, amount } = parsedParams.data;
+
+  try {
+    const fromCurrency = baseCurrency;
+    const toCurrency = targetCurrency;
+    const convertAmount = amount;
+    console.log('Tool params received:', parsedParams.data);
+    console.log('Extracted currencies:', { fromCurrency, toCurrency, amount: convertAmount });
+    if (!fromCurrency || !toCurrency) {
+      return { success: false, error: 'Missing currency parameters' };
+    }
+    const response = await fetch(
+      `https://api.exchangerate-api.com/v4/latest/${fromCurrency.toUpperCase()}`
+    );
+    if (!response.ok) {
+      return { success: false, error: 'Failed to fetch exchange rates' };
+    }
+    const data = await response.json() as ExchangeRateResponse;
+    const rate = data.rates[toCurrency.toUpperCase()];
+    if (!rate) {
+      return { success: false, error: `Currency ${toCurrency} not found` };
+    }
+    const convertedAmount = convertAmount * rate;
+    return {
+      success: true,
+      from: fromCurrency.toUpperCase(),
+      to: toCurrency.toUpperCase(),
+      rate,
+      amount: convertAmount,
+      converted: convertedAmount,
+      timestamp: data.date,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: `Failed to get exchange rate: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    };
+  }
+}
+
+export const currencyTool = dynamicTool({
+  description: 'Convert an amount from one currency to another using current exchange rates. Only use this tool for queries explicitly mentioning currency conversion or money exchange (e.g., "How much is 100 USD in EUR?"). Use 3-letter currency codes like USD, EUR, BRL, GBP, JPY.',
+  inputSchema: currencyParamsSchema as any,
+  execute: executeCurrencyTool as (params: unknown) => Promise<unknown>,
+});
