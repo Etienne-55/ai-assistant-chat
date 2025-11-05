@@ -69,7 +69,6 @@ app.post('/chat', upload.single('pdf'), async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    // Detect query type and enhance message
     let userMessage = message;
     let toolChoice: 'auto' | 'required' = 'auto';
     
@@ -98,20 +97,17 @@ app.post('/chat', upload.single('pdf'), async (req: Request, res: Response) => {
     console.log('Starting streamText...');
 
     const systemPrompt = `You are a helpful AI assistant with access to real-time tools.
-
-CRITICAL RULES:
-1. When you see [SYSTEM INSTRUCTION: ...], follow it immediately
-2. For weather: ALWAYS use getWeather tool, then explain the results
-3. For currency: ALWAYS use getCurrency tool, then explain the results  
-4. For PDFs: ALWAYS use readPDF tool first, then summarize
-5. After using ANY tool, you MUST provide a natural language response explaining the results
-6. NEVER say "I will use a tool" - just use it, then explain the results
-
-Example flow:
-User: "What's the weather in London?"
-You: [use getWeather tool] → "The weather in London is currently 15°C with partly cloudy skies..."
-
-For greetings or general questions without tools, respond normally.`;
+    CRITICAL RULES:
+    1. When you see [SYSTEM INSTRUCTION: ...], follow it immediately
+    2. For weather: ALWAYS use getWeather tool, then explain the results
+    3. For currency: ALWAYS use getCurrency tool, then explain the results  
+    4. For PDFs: ALWAYS use readPDF tool first, then summarize
+    5. After using ANY tool, you MUST provide a natural language response explaining the results
+    6. NEVER say "I will use a tool" - just use it, then explain the results
+    Example flow:
+    User: "What's the weather in London?"
+    You: [use getWeather tool] → "The weather in London is currently 15°C with partly cloudy skies..."
+    For greetings or general questions without tools, respond normally.`;
 
     const result = await streamText({
       model: ollama.chat('qwen2.5:1.5b-instruct-q4_K_M'),
@@ -163,47 +159,42 @@ For greetings or general questions without tools, respond normally.`;
       }
     }
 
-    // Fallback: If model didn't generate text after tool call, format the result manually
-    if (!hasText && toolResults.length > 0) {
-      console.log('No text generated, formatting tool results manually...');
-      console.log('Tool results:', JSON.stringify(toolResults, null, 2));
-      
-      const lastResult = toolResults[toolResults.length - 1];
-      const output = lastResult.output;
-      
-      // Check if there's an error in the output
-      if (output && typeof output === 'object' && 'error' in output) {
-        res.write(`Error: ${output.error}`);
-      } else if (lastResult.toolName === 'getWeather' && output && typeof output === 'object' && 'temperature' in output) {
-        const tempSymbol = output.units?.temperature === 'fahrenheit' ? '°F' : '°C';
-        res.write(
-          `🌤️ Weather in ${output.location}:\n\n` +
-          `Temperature: ${output.temperature}${tempSymbol}\n` +
-          `Feels like: ${output.feels_like}${tempSymbol}\n` +
-          `Humidity: ${output.humidity}%\n` +
-          `Precipitation: ${output.precipitation}mm\n` +
-          `Wind speed: ${output.wind_speed} ${output.units?.wind_speed || 'km/h'}\n\n` +
-          `Last updated: ${output.timestamp}`
-        );
-      } else if (lastResult.toolName === 'getCurrency' && output && typeof output === 'object' && 'amount' in output) {
-        res.write(
-          `💱 Currency Conversion:\n\n` +
-          `${output.amount} ${output.from} = ${Number(output.converted).toFixed(2)} ${output.to}\n` +
-          `Exchange rate: ${output.rate}\n` +
-          `Last updated: ${output.timestamp}`
-        );
-      } else if (lastResult.toolName === 'readPDF' && output && typeof output === 'object') {
-        if (output.success && 'content' in output) {
-          const content = output.content.substring(0, 1000);
-          res.write(`📄 PDF Analysis:\n\n${content}${output.content.length > 1000 ? '...\n\n(Content truncated for brevity)' : ''}`);
-        } else {
-          res.write(`❌ Sorry, I couldn't read the PDF: ${output.error || 'Unknown error'}`);
-        }
+  if (!hasText && toolResults.length > 0) {
+    console.log('No text generated, formatting tool results manually...');
+    console.log('Tool results:', JSON.stringify(toolResults, null, 2));
+    
+    const lastResult = toolResults[toolResults.length - 1];
+    const output = lastResult.output?.output || lastResult.output;
+    
+    if (output && typeof output === 'object' && 'error' in output) {
+      res.write(`Error: ${output.error}`);
+    } else if (lastResult.toolName === 'getWeather' && output && typeof output === 'object' && 'temperature' in output) {
+      const tempSymbol = output.units?.temperature === 'fahrenheit' ? '°F' : '°C';
+      res.write(
+        `The weather in ${output.location}:\n\n` +
+        `Temperature: ${output.temperature}${tempSymbol}\n` +
+        `Feels like: ${output.feels_like}${tempSymbol}\n` +
+        `Humidity: ${output.humidity}%\n` +
+        `Precipitation: ${output.precipitation}mm\n` +
+        `Wind speed: ${output.wind_speed} ${output.units?.wind_speed || 'km/h'}`
+      );
+    } else if (lastResult.toolName === 'getCurrency' && output && typeof output === 'object' && 'amount' in output) {
+      res.write(
+        `${output.amount} ${output.from} equals ${Number(output.converted).toFixed(2)} ${output.to}\n` +
+        `Exchange rate: ${output.rate} (as of ${output.timestamp})`
+      );
+    } else if (lastResult.toolName === 'readPDF' && output && typeof output === 'object') {
+      if (output.success && 'content' in output) {
+        const content = output.content.substring(0, 1500);
+        res.write(`Here's what I found in the PDF:\n\n${content}${output.content.length > 1500 ? '...\n\n(showing first 1500 characters)' : ''}`);
       } else {
-        console.log('Unhandled output format:', output);
-        res.write(`I received a response but couldn't format it properly. Raw data: ${JSON.stringify(output, null, 2)}`);
+        res.write(`Sorry, I couldn't read the PDF: ${output.error || 'Unknown error'}`);
       }
+    } else {
+      console.log('Unhandled output format:', output);
+      res.write(`I received a response but couldn't format it properly.`);
     }
+  }
     
     res.end();
 
@@ -227,3 +218,4 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`Using Ollama at ${ollamaURL}`);
 });
+
