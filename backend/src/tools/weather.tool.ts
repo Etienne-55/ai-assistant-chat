@@ -89,3 +89,4 @@ export const weatherTool = tool({
     }
   },
 } as any); 
+

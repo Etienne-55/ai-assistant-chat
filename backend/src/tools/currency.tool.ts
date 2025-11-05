@@ -13,19 +13,6 @@ const currencyParamsSchema = z.object({
   amount: z.number().default(1).describe('Amount to convert (default: 1)'),
 });
 
-type CurrencyParams = z.infer<typeof currencyParamsSchema>;
-
-interface CurrencyToolResult {
-  success: boolean;
-  from?: string;
-  to?: string;
-  rate?: number;
-  amount?: number;
-  converted?: number;
-  timestamp?: string;
-  error?: string;
-}
-
 async function executeCurrencyTool(params: unknown): Promise<unknown> {
   const parsedParams = currencyParamsSchema.safeParse(params);
   if (!parsedParams.success) {
@@ -80,3 +67,4 @@ export const currencyTool = dynamicTool({
   inputSchema: currencyParamsSchema as any,
   execute: executeCurrencyTool as (params: unknown) => Promise<unknown>,
 });
+
