@@ -25,13 +25,11 @@ const ollama = createOpenAI({
   baseURL: `${ollamaURL}/v1`,
 });
 
-// Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadsDir);
@@ -71,12 +69,10 @@ app.post('/chat', upload.single('pdf'), async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    // Build messages array
     let userMessage = message;
     
-    // Add PDF context if uploaded
     if (pdfFile) {
-      userMessage = `${message}\n\n[System: User has uploaded a PDF file located at: ${pdfFile.path}. Use the readPDF tool to analyze it.]`;
+      userMessage = `${message}\n\n[System: User has uploaded a PDF file located at: ${pdfFile.path}. Use the readPDF tool to analyze it and then provide a detailed response based on the content.]`;
       console.log('PDF uploaded at:', pdfFile.path);
     }
 
@@ -89,7 +85,14 @@ app.post('/chat', upload.single('pdf'), async (req: Request, res: Response) => {
 
     console.log('Starting streamText...');
 
-    const systemPrompt = `You are a helpful assistant that prioritizes direct, concise, and accurate text responses for all queries unless explicitly required to use a tool. ONLY use the 'getCurrency' tool for queries explicitly mentioning currency conversion (e.g., "Convert 100 USD to EUR") and the 'getWeather' tool for queries explicitly mentioning weather or a location's climate (e.g., "What's the weather in London?"). Use the 'readPDF' tool ONLY when a PDF file path is mentioned in the system message or when the user asks questions about an uploaded PDF document. For greetings (e.g., "Hello", "Hi") or general knowledge questions (e.g., "What's the biggest animal?", "What's the fastest car?"), ALWAYS provide a direct text response and DO NOT invoke any tools, even if the query mentions avoiding tools. Never invent or assume the existence of tools not provided. Avoid technical terms like "JSON", "function call", or "tool" in your answers.`;
+    const systemPrompt = `You are a helpful assistant that prioritizes direct, concise, and accurate text responses for all queries unless explicitly required to use a tool. ONLY use the 'getCurrency' tool for queries explicitly mentioning currency conversion (e.g., "Convert 100 USD to EUR") and the 'getWeather' tool for queries explicitly mentioning weather or a location's climate (e.g., "What's the weather in London?"). 
+
+When a PDF file path is mentioned in the system message, you MUST:
+1. Use the 'readPDF' tool to extract the content
+2. AFTER getting the PDF content, analyze it and provide a comprehensive response to the user's question
+3. Always provide a text response explaining what you found in the PDF
+
+For greetings (e.g., "Hello", "Hi") or general knowledge questions, provide direct text responses. Never invent or assume the existence of tools not provided. Avoid technical terms like "JSON", "function call", or "tool" in your answers.`;
 
     const result = await streamText({
       model: ollama.chat('qwen2.5:3b-instruct-q4_K_M'),
@@ -150,8 +153,11 @@ app.post('/chat', upload.single('pdf'), async (req: Request, res: Response) => {
           `${output.amount} ${output.from} = ${Number(output.converted).toFixed(2)} ${output.to}\n` +
           `(Rate: ${output.rate} on ${output.timestamp})`
         );
-      } else if (lastResult.toolName === 'readPDF' && 'content' in output) {
-        res.write(`PDF Analysis:\n${output.content.substring(0, 500)}...`);
+      } else if (lastResult.toolName === 'readPDF' && output.success && 'content' in output) {
+        const content = output.content.substring(0, 1000);
+        res.write(`I analyzed the PDF. Here's what I found:\n\n${content}${output.content.length > 1000 ? '...' : ''}`);
+      } else if (lastResult.toolName === 'readPDF' && !output.success) {
+        res.write(`Sorry, I couldn't read the PDF: ${output.error}`);
       }
     }
     
@@ -159,10 +165,6 @@ app.post('/chat', upload.single('pdf'), async (req: Request, res: Response) => {
 
     console.log(`Stream completed: hasText=${hasText}, toolResults=${toolResults.length}, toolCalls=${toolCalls.join(', ')}`);
 
-    // Optional: Clean up PDF file after processing
-    // if (pdfFile && fs.existsSync(pdfFile.path)) {
-    //   fs.unlinkSync(pdfFile.path);
-    // }
 
   } catch (error) {
     console.error('Chat error:', error);
@@ -182,3 +184,4 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`Using Ollama local server`);
 });
+

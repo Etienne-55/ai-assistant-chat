@@ -2,8 +2,6 @@ import { dynamicTool } from 'ai';
 import { z } from 'zod';
 import fs from 'fs/promises';
 
-const pdf = require('pdf-parse');
-
 const pdfParamsSchema = z.object({
   filePath: z.string().describe('Path to the PDF file on server'),
   query: z.string().describe('What to search for in the PDF'),
@@ -45,7 +43,25 @@ async function executePdfTool(params: unknown): Promise<unknown> {
 
     const dataBuffer = await fs.readFile(filePath);
     
-    const data = await pdf(dataBuffer);
+    let pdfParse;
+    try {
+      // Try different import methods
+      const pdfModule = await import('pdf-parse');
+      pdfParse = pdfModule.default || pdfModule;
+    } catch (e) {
+      // Fallback to require
+      pdfParse = require('pdf-parse');
+    }
+
+    if (typeof pdfParse !== 'function' && pdfParse.default) {
+      pdfParse = pdfParse.default;
+    }
+
+    if (typeof pdfParse !== 'function') {
+      throw new Error('pdf-parse module did not export a function');
+    }
+
+    const data = await pdfParse(dataBuffer);
     const text = data.text;
 
     if (!text || text.trim().length === 0) {
@@ -64,6 +80,7 @@ async function executePdfTool(params: unknown): Promise<unknown> {
       query: query,
     };
   } catch (error) {
+    console.error('PDF parsing error:', error);
     return {
       success: false,
       error: `Failed to read PDF: ${error instanceof Error ? error.message : 'Unknown error'}`,
