@@ -7,3 +7,5 @@ o usuario podera interagir normalmente. porem dada as informacoes que correspond
 3 ferramentas. a ia podera decidir se faz a chamada da ferramenta ou nao. o projeto foi pensado 
 para rodar o mais rapido perdendo o minimo de tempo possivel. (futuras possiveis melhorias,
 adicionar rag, mais ferramentas. funcao de ativar as ferramenta disponiveis etc)
+
+986kb
