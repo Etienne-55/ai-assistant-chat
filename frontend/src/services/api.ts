@@ -1,22 +1,29 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export interface ChatMessage {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
 }
 
 export const chatStream = async (
   messages: ChatMessage[],
+  pdfFile: File | null,
   onChunk: (chunk: string) => void,
   onError: (error: Error) => void
 ) => {
   try {
+    const formData = new FormData();
+    
+    const lastMessage = messages[messages.length - 1];
+    formData.append('message', lastMessage.content);
+    
+    if (pdfFile) {
+      formData.append('pdf', pdfFile);
+    }
+
     const response = await fetch(`${API_URL}/chat`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ messages }),
+      body: formData, 
     });
 
     if (!response.ok) {
@@ -41,3 +48,4 @@ export const chatStream = async (
     onError(error as Error);
   }
 };
+

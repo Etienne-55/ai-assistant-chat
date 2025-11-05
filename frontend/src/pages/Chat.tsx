@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MessageList } from '../components/MessageList';
 import { MessageInput } from '../components/MessageInput';
+import { PdfUpload } from '../components/PdfUpload';
 import { chatStream } from '../services/api';
 import { LogOut, Bot } from 'lucide-react';
 
@@ -12,7 +13,7 @@ interface User {
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
 }
@@ -25,6 +26,29 @@ interface ChatProps {
 export const Chat = ({ user, onLogout }: ChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [uploadedPdf, setUploadedPdf] = useState<File | null>(null);
+
+  const handlePdfSelect = (file: File | null) => {
+    if (file) {
+      setUploadedPdf(file);
+      const systemMessage: Message = {
+        id: Date.now().toString(),
+        role: 'system',
+        content: `PDF uploaded: ${file.name}`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, systemMessage]);
+    } else {
+      setUploadedPdf(null);
+      const systemMessage: Message = {
+        id: Date.now().toString(),
+        role: 'system',
+        content: 'PDF removed',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, systemMessage]);
+    }
+  };
 
   const handleSend = async (content: string) => {
     const userMessage: Message = {
@@ -55,6 +79,7 @@ export const Chat = ({ user, onLogout }: ChatProps) => {
         role: m.role,
         content: m.content,
       })),
+      uploadedPdf,
       (chunk) => {
         assistantContent += chunk;
         setMessages((prev) =>
@@ -112,7 +137,11 @@ export const Chat = ({ user, onLogout }: ChatProps) => {
       {/* Chat Container */}
       <div className="flex-1 max-w-6xl mx-auto w-full flex flex-col bg-tokyo-bgDark">
         <MessageList messages={messages} />
-        <MessageInput onSend={handleSend} disabled={isStreaming} />
+        
+        <div className="border-t border-tokyo-terminal p-4">
+          <PdfUpload onPdfSelect={handlePdfSelect} currentFile={uploadedPdf} />
+          <MessageInput onSend={handleSend} disabled={isStreaming} />
+        </div>
       </div>
     </div>
   );
