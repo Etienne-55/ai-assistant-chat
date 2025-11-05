@@ -7,15 +7,15 @@ const pdfParamsSchema = z.object({
   query: z.string().describe('What to search for in the PDF'),
 });
 
-type PdfParams = z.infer<typeof pdfParamsSchema>;
-
-interface PdfToolResult {
-  success: boolean;
-  content?: string;
-  pages?: number;
-  query?: string;
-  error?: string;
-}
+// type PdfParams = z.infer<typeof pdfParamsSchema>;
+//
+// interface PdfToolResult {
+//   success: boolean;
+//   content?: string;
+//   pages?: number;
+//   query?: string;
+//   error?: string;
+// }
 
 async function executePdfTool(params: unknown): Promise<unknown> {
   const parsedParams = pdfParamsSchema.safeParse(params);
@@ -45,11 +45,9 @@ async function executePdfTool(params: unknown): Promise<unknown> {
     
     let pdfParse;
     try {
-      // Try different import methods
       const pdfModule = await import('pdf-parse');
       pdfParse = pdfModule.default || pdfModule;
     } catch (e) {
-      // Fallback to require
       pdfParse = require('pdf-parse');
     }
 
