@@ -147,7 +147,6 @@ app.post('/chat', upload.single('pdf'), async (req: Request, res: Response) => {
       } else if (chunk.type === 'tool-result') {
         console.log('Tool result for:', chunk.toolName);
         
-        // The result is in chunk.result (for ai sdk 3.x) or chunk itself
         const resultData = 'result' in chunk ? (chunk as any).result : chunk;
         
         console.log('Result data:', JSON.stringify(resultData, null, 2));

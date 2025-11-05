@@ -43,7 +43,7 @@ export const MessageList = ({ messages }: MessageListProps) => {
             >
               <p className="whitespace-pre-wrap">{message.content}</p>
               <span className="text-xs opacity-50 mt-1 block">
-                {message.timestamp.toLocaleTimeString()}
+                {message.timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
 

@@ -75,7 +75,7 @@ export const Login = ({ onLogin, isLoading }: LoginProps) => {
         </form>
 
         <p className="text-tokyo-comment text-sm text-center mt-6">
-          Mock authentication - any credentials work
+          Mock authentication
         </p>
       </div>
     </div>
