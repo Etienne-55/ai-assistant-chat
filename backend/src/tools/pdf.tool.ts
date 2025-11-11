@@ -7,16 +7,6 @@ const pdfParamsSchema = z.object({
   query: z.string().describe('What to search for in the PDF'),
 });
 
-// type PdfParams = z.infer<typeof pdfParamsSchema>;
-//
-// interface PdfToolResult {
-//   success: boolean;
-//   content?: string;
-//   pages?: number;
-//   query?: string;
-//   error?: string;
-// }
-
 async function executePdfTool(params: unknown): Promise<unknown> {
   const parsedParams = pdfParamsSchema.safeParse(params);
   

@@ -33,7 +33,6 @@ export class ChatService {
       toolChoice,
     });
 
-    // 4. Process stream
     let hasText = false;
     const toolResults: ToolResult[] = [];
 
@@ -44,17 +43,28 @@ export class ChatService {
       } else if (chunk.type === 'tool-call') {
         console.log('Tool called:', chunk.toolName);
       } else if (chunk.type === 'tool-result') {
-        // Fix: Type assertion and safer access
         const chunkWithOutput = chunk as any;
-        const output = chunkWithOutput.output?.output || chunkWithOutput.output || {};
+        
+        let actualOutput = chunkWithOutput.output;
+        
+        if (actualOutput && typeof actualOutput === 'object' && 'output' in actualOutput) {
+          actualOutput = actualOutput.output;
+        }
+        
+        console.log('Tool result extracted:', { 
+          toolName: chunk.toolName, 
+          actualOutput: JSON.stringify(actualOutput) 
+        });
+        
         toolResults.push({ 
           toolName: chunk.toolName, 
-          output 
+          output: actualOutput
         });
       }
     }
 
     if (!hasText && toolResults.length > 0) {
+      console.log('No text generated, formatting tool results manually...');
       const formatted = this.formatToolResults(toolResults);
       onChunk(formatted);
     }
@@ -98,85 +108,74 @@ RULES:
 Be concise and helpful.`;
   }
 
+  private formatToolResults(results: ToolResult[]): string {
+    if (results.length === 0) {
+      return 'No results to format';
+    }
 
-
-private formatToolResults(results: ToolResult[]): string {
-  if (results.length === 0) {
-    return 'No results to format';
-  }
-
-  const lastResult = results[results.length - 1];
-  
-  if (!lastResult) {
-    return 'Unable to format response';
-  }
-
-  let { toolName, output } = lastResult;
-
-  // Parse output if it's a string
-  if (typeof output === 'string') {
-    try {
-      output = JSON.parse(output);
-    } catch (e) {
-      console.log('Failed to parse output as JSON:', output);
+    const lastResult = results[results.length - 1];
+    
+    if (!lastResult) {
       return 'Unable to format response';
     }
-  }
 
-  // Debug: Log the actual structure
-  console.log('Formatting tool result:', { 
-    toolName, 
-    outputType: typeof output,
-    outputKeys: output ? Object.keys(output) : [],
-    hasTemperature: output && 'temperature' in output,
-    fullOutput: JSON.stringify(output)
-  });
+    let { toolName, output } = lastResult;
 
-  // Check if output exists
-  if (!output || typeof output !== 'object') {
-    console.log('Output is null or not an object');
-    return 'Unable to format response';
-  }
-
-  // Check for error first
-  if ('error' in output && output.error) {
-    return `Error: ${output.error}`;
-  }
-
-  // Weather
-  if (toolName === 'getWeather' && 'temperature' in output) {
-    const temp = output.units?.temperature === 'fahrenheit' ? '°F' : '°C';
-    return (
-      `The weather in ${output.location}:\n\n` +
-      `Temperature: ${output.temperature}${temp}\n` +
-      `Feels like: ${output.feels_like}${temp}\n` +
-      `Humidity: ${output.humidity}%\n` +
-      `Precipitation: ${output.precipitation}mm\n` +
-      `Wind speed: ${output.wind_speed} ${output.units?.wind_speed || 'km/h'}`
-    );
-  }
-
-  // Currency
-  if (toolName === 'getCurrency' && 'converted' in output) {
-    return (
-      `${output.amount} ${output.from} equals ` +
-      `${Number(output.converted).toFixed(2)} ${output.to}\n` +
-      `Exchange rate: ${output.rate}`
-    );
-  }
-
-  // PDF
-  if (toolName === 'readPDF') {
-    if (output.success && 'content' in output) {
-      const preview = output.content?.substring(0, 1500) || '';
-      return `Here's what I found in the PDF:\n\n${preview}...`;
-    } else if (!output.success && 'error' in output) {
-      return `Sorry, I couldn't read the PDF: ${output.error}`;
+    if (typeof output === 'string') {
+      try {
+        output = JSON.parse(output);
+      } catch (e) {
+        console.log('Failed to parse output as JSON:', output);
+        return 'Unable to format response';
+      }
     }
+
+    console.log('Formatting tool result:', { 
+      toolName, 
+      outputType: typeof output,
+      outputKeys: output ? Object.keys(output) : [],
+      fullOutput: JSON.stringify(output)
+    });
+
+    if (!output || typeof output !== 'object') {
+      console.log('Output is null or not an object');
+      return 'Unable to format response';
+    }
+
+    if ('error' in output && output.error) {
+      return `Error: ${output.error}`;
+    }
+
+    if (toolName === 'getWeather' && 'temperature' in output) {
+      const temp = output.units?.temperature === 'fahrenheit' ? '°F' : '°C';
+      return (
+        `The weather in ${output.location}:\n\n` +
+        `Temperature: ${output.temperature}${temp}\n` +
+        `Feels like: ${output.feels_like}${temp}\n` +
+        `Humidity: ${output.humidity}%\n` +
+        `Precipitation: ${output.precipitation}mm\n` +
+        `Wind speed: ${output.wind_speed} ${output.units?.wind_speed || 'km/h'}`
+      );
+    }
+
+    if (toolName === 'getCurrency' && 'converted' in output) {
+      return (
+        `${output.amount} ${output.from} equals ` +
+        `${Number(output.converted).toFixed(2)} ${output.to}\n` +
+        `Exchange rate: ${output.rate}`
+      );
+    }
+
+    if (toolName === 'readPDF') {
+      if (output.success && 'content' in output) {
+        const preview = output.content?.substring(0, 1500) || '';
+        return `Here's what I found in the PDF:\n\n${preview}...`;
+      } else if (!output.success && 'error' in output) {
+        return `Sorry, I couldn't read the PDF: ${output.error}`;
+      }
+    }
+
+    console.log('No matching formatter found for:', toolName);
+    return `Unable to format response for tool: ${toolName}`;
   }
-
-  console.log('No matching formatter found for:', toolName);
-  return `Unable to format response for tool: ${toolName}`;
-}
-
 }
